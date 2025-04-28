@@ -22,7 +22,7 @@ def main():
     logging.info(f"Fetched {len(data)} rows from the database.")
 
     # Limit the data for testing purposes
-    data = data[:100]
+    data = data[:10]
     logging.info(f"Processing only the first {len(data)} rows for testing.")
     
     logging.info("Initializing drug extractor...")
@@ -32,9 +32,12 @@ def main():
     extracted_drugs = drug_extractor.extract_drug_names(data)
     logging.info(f"Extraction complete. Processed {len(extracted_drugs)} rows.")
 
-    nctid_to_extracted = {row["nct_id"]: row["extracted_drugs"] for row in extracted_drugs}
+    nctid_to_extracted = {
+        row["nct_id"]: ", ".join(row["extracted_drugs"]) if isinstance(row["extracted_drugs"], list) else row["extracted_drugs"]
+        for row in extracted_drugs
+    }
     for row in data:
-        row["extracted_drugs"] = nctid_to_extracted.get(row["nct_id"], [])
+        row["extracted_drugs"] = nctid_to_extracted.get(row["nct_id"], "")
 
     logging.info("Saving extracted drug names to Parquet file...")
     df = pd.DataFrame(data)
