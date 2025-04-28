@@ -1,0 +1,7 @@
+langchain
+requests
+psycopg2-binary
+dotenv
+python-dotenv
+pyarrow
+pandas
