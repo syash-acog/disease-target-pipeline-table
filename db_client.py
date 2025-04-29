@@ -21,8 +21,8 @@ class DBClient:
             dbname="aact_db"  # Updated to correct DB name
         )
 
-    def fetch_data(self):
-        query = """
+    def fetch_data(self, disease_name):
+        query = f"""
         SELECT
             s.nct_id,
             c.downcase_name AS condition_name,
@@ -40,14 +40,14 @@ class DBClient:
         JOIN
             ctgov.interventions i ON s.nct_id = i.nct_id
         WHERE
-            c.downcase_name = 'asthma'
+            c.downcase_name = %s
             AND s.study_type = 'INTERVENTIONAL'
             AND i.intervention_type IN ('DRUG', 'BIOLOGICAL')
         GROUP BY
             s.nct_id, c.downcase_name, s.phase, s.overall_status, s.source, s.source_class, s.official_title;
         """
         with self.connection.cursor() as cur:
-            cur.execute(query)
+            cur.execute(query, (disease_name.lower(),))
             columns = [desc[0] for desc in cur.description]
             rows = cur.fetchall()
             data = [dict(zip(columns, row)) for row in rows]
