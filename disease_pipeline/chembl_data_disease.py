@@ -63,9 +63,9 @@ def fetch_approval_status(chembl_id, disease_name):
     resp = requests.get(url)
     if resp.status_code == 200:
         for ind in resp.json().get("drug_indications", []):
-            # Try to match disease_name to efo_term or mesh_heading (case-insensitive, trimmed)
-            efo_term = ind.get("efo_term", "").strip().lower()
-            mesh_heading = ind.get("mesh_heading", "").strip().lower()
+            # Safely handle None values for efo_term and mesh_heading
+            efo_term = (ind.get("efo_term") or "").strip().lower()
+            mesh_heading = (ind.get("mesh_heading") or "").strip().lower()
             if disease_name and (
                 disease_name.strip().lower() == efo_term or
                 disease_name.strip().lower() == mesh_heading or
@@ -168,55 +168,6 @@ def format_multi_drug_output(blocks):
     """
     return " | ".join([", ".join([v for v in vals if v and v != "NA"]) if vals else "NA" for vals in blocks])
 
-def fetch_and_write_chembl_summary_csv(drug_names, output_csv="summary.csv", disease_name=None):
-    """
-    Writes a summary CSV for a list of drug names.
-    Each row includes ChEMBL IDs, MoA (with fallback), target, modality, approval status, and short MoA symbol.
-    If MoA is empty but target is present, MoA column is filled with 'TARGET: keyword'.
-    """
-    fieldnames = [
-        "input_drug", "chembl_ids", "mechanism_of_action", "target_name",
-        "modality", "approval_status", "moa_short"
-    ]
-    data = []
-    for drug_name in drug_names:
-        chembl_ids = get_chembl_id_exact(drug_name)
-        # Fetch MoA and target
-        moa_targets = fetch_moa_targets_for_ids(chembl_ids)
-        moa_str = get_moa_with_target_fallback(moa_targets)
-        target_list = [mt[2] for mt in moa_targets if mt[2] and mt[2] != "NA"]
-        target_str = "; ".join(target_list) if target_list else "NA"
-        # Get the original full modality column as before
-        moltype_str = "; ".join([fetch_molecule_type(cid) for cid in chembl_ids if cid]) if chembl_ids else "NA"
-        # Approval status (use first chembl_id if available)
-        if chembl_ids and disease_name:
-            approval_status = fetch_approval_status(chembl_ids[0], disease_name)
-        else:
-            approval_status = "NA"
-        # Short MoA symbol: TARGET_SYMBOL: keyword
-        moa_short_blocks = []
-        for chembl_id, moa, target in moa_targets:
-            if target and target != "NA":
-                moa_kw = extract_moa_keyword(moa)
-                moa_short_blocks.append(f"{target}: {moa_kw}")
-        moa_short = "; ".join(moa_short_blocks) if moa_short_blocks else "NA"
-        data.append({
-            "input_drug": drug_name,
-            "chembl_ids": ", ".join(chembl_ids) if chembl_ids else "NA",
-            "mechanism_of_action": moa_str,
-            "target_name": target_str,
-            "modality": moltype_str,
-            "approval_status": approval_status,
-            "moa_short": moa_short
-        })
-    if not data:
-        print(f"[ERROR] No data to write for input drugs: {drug_names}")
-        return
-    with open(output_csv, "w", newline='') as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(data)
-    print(f"[INFO] Summary saved to {output_csv}")
 
 # # The following function is not used in the main workflow but kept for reference.
 # def get_moa_with_target_fallback(moa_targets):
@@ -234,9 +185,3 @@ def fetch_and_write_chembl_summary_csv(drug_names, output_csv="summary.csv", dis
 #     else:
 #         return "NA"
 
-if __name__ == "__main__":
-    drug_input = input("Enter drug names (comma separated): ").strip()
-    drug_names = [d.strip() for d in drug_input.split(",") if d.strip()]
-    disease_name = input("Enter disease name (optional): ").strip() or None
-    filename = "chembl_summary.csv"
-    fetch_and_write_chembl_summary_csv(drug_names, filename, disease_name)

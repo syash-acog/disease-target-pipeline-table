@@ -1,7 +1,7 @@
 from llm_client import LLMClient
-from db_client import DBClient
+from disease_pipeline.disease_db_client import DBClient
 from extractor import DrugExtractor
-import chembl_data
+import disease_pipeline.chembl_data_disease as chembl_data_disease
 import pandas as pd
 import logging
 import os
@@ -73,29 +73,29 @@ def main():
 
         for drug in drug_list:
             # Fetch ChEMBL IDs for the drug
-            chembl_ids = chembl_data.get_chembl_id_exact(drug)
+            chembl_ids = chembl_data_disease.get_chembl_id_exact(drug)
             # Fetch MoA and target info for these IDs
-            moa_targets = chembl_data.fetch_moa_targets_for_ids(chembl_ids)
-            # Get MoA (full/fallback) and short MoA (symbol: keyword)
-            moa_str = chembl_data.get_moa_with_target_fallback(moa_targets)
+            moa_targets = chembl_data_disease.fetch_moa_targets_for_ids(chembl_ids)
+            # Get MoA (short form)
+            moa_str = chembl_data_disease.get_moa_short(moa_targets)
             moa_blocks.append([s.strip() for s in moa_str.split(";")] if moa_str and moa_str != "NA" else [])
             target_list = [mt[2] for mt in moa_targets if mt[2] and mt[2] != "NA"]
             target_blocks.append(target_list)
-            moltype_list = [chembl_data.fetch_molecule_type(cid) for cid in chembl_ids if cid]
+            moltype_list = [chembl_data_disease.fetch_molecule_type(cid) for cid in chembl_ids if cid]
             moltype_blocks.append(moltype_list)
             if chembl_ids:
-                approval_status = chembl_data.fetch_approval_status(chembl_ids[0], disease_name)
+                approval_status = chembl_data_disease.fetch_approval_status(chembl_ids[0], disease_name)
             else:
                 approval_status = "NA"
             approval_blocks.append([approval_status])
-            moa_short = chembl_data.get_moa_short(moa_targets)
+            moa_short = chembl_data_disease.get_moa_short(moa_targets)
             moa_short_blocks.append(moa_short if moa_short else "NA")
 
         # Aggregate results for all drugs in the trial
-        nctid_to_moa[row["nct_id"]] = chembl_data.format_multi_drug_output(moa_blocks)
-        nctid_to_target[row["nct_id"]] = chembl_data.format_multi_drug_output(target_blocks)
-        nctid_to_moltype[row["nct_id"]] = chembl_data.format_multi_drug_output(moltype_blocks)
-        nctid_to_approval[row["nct_id"]] = chembl_data.format_multi_drug_output(approval_blocks)
+        nctid_to_moa[row["nct_id"]] = chembl_data_disease.format_multi_drug_output(moa_blocks)
+        nctid_to_target[row["nct_id"]] = chembl_data_disease.format_multi_drug_output(target_blocks)
+        nctid_to_moltype[row["nct_id"]] = chembl_data_disease.format_multi_drug_output(moltype_blocks)
+        nctid_to_approval[row["nct_id"]] = chembl_data_disease.format_multi_drug_output(approval_blocks)
         nctid_to_moa_short[row["nct_id"]] = " | ".join(moa_short_blocks)
 
     # Write results to batch_data for CSV output
