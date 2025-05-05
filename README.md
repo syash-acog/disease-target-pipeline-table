@@ -90,8 +90,8 @@ db_port=5432
 db_userid=your_user
 db_password=your_password
 
-username=your_llm_username
-password=your_llm_password
+username=your_ldap_username
+password=your_ldap_password
 base_url=https://ollama.own1.aganitha.ai
 ```
 
