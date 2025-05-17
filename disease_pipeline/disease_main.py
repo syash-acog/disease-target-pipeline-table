@@ -1,7 +1,7 @@
 from llm_client import LLMClient
-from disease_pipeline.disease_db_client import DBClient
+from disease_db_client import DBClient
 from extractor import DrugExtractor
-import disease_pipeline.chembl_data_disease as chembl_data_disease
+import chembl_data_disease as chembl_data_disease
 import pandas as pd
 import logging
 import os
@@ -23,7 +23,7 @@ def main():
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--offset", type=int, default=0, help="Start row")
-    parser.add_argument("--limit", type=int, default=30, help="Batch size")
+    parser.add_argument("--limit", type=int, default=1677, help="Batch size")
     args = parser.parse_args()
 
     # Prompt user for disease name and fetch relevant data
@@ -58,6 +58,7 @@ def main():
     nctid_to_moltype = {}
     nctid_to_approval = {}
     nctid_to_moa_short = {}
+    nctid_to_target_type = {}  # New mapping for Target Type
 
     # For each trial, process all extracted drugs and aggregate ChEMBL info
     for row in extracted_drugs:
@@ -70,11 +71,12 @@ def main():
         moltype_blocks = []
         approval_blocks = []
         moa_short_blocks = []
+        target_type_blocks = []  # New list for target types
 
         for drug in drug_list:
             # Fetch ChEMBL IDs for the drug
             chembl_ids = chembl_data_disease.get_chembl_id_exact(drug)
-            # Fetch MoA and target info for these IDs
+            # Fetch MoA and target info for these IDs (now including target id)
             moa_targets = chembl_data_disease.fetch_moa_targets_for_ids(chembl_ids)
             # Get MoA (short form)
             moa_str = chembl_data_disease.get_moa_short(moa_targets)
@@ -90,6 +92,20 @@ def main():
             approval_blocks.append([approval_status])
             moa_short = chembl_data_disease.get_moa_short(moa_targets)
             moa_short_blocks.append(moa_short if moa_short else "NA")
+            
+            # New: Fetch target type for each mechanism (if target id is available)
+            target_type_list = []
+            for mt in moa_targets:
+                # mt is a tuple: (chembl_id, moa, target, target_id)
+                if len(mt) == 4:
+                    tgt_id = mt[3]
+                    if tgt_id:
+                        ttype = chembl_data_disease.get_target_type(tgt_id)
+                        if ttype and ttype != "NA":
+                            target_type_list.append(ttype)
+            if not target_type_list:
+                target_type_list = ["NA"]
+            target_type_blocks.append(target_type_list)
 
         # Aggregate results for all drugs in the trial
         nctid_to_moa[row["nct_id"]] = chembl_data_disease.format_multi_drug_output(moa_blocks)
@@ -97,6 +113,7 @@ def main():
         nctid_to_moltype[row["nct_id"]] = chembl_data_disease.format_multi_drug_output(moltype_blocks)
         nctid_to_approval[row["nct_id"]] = chembl_data_disease.format_multi_drug_output(approval_blocks)
         nctid_to_moa_short[row["nct_id"]] = " | ".join(moa_short_blocks)
+        nctid_to_target_type[row["nct_id"]] = chembl_data_disease.format_multi_drug_output(target_type_blocks)
 
     # Write results to batch_data for CSV output
     for row in batch_data:
@@ -111,6 +128,8 @@ def main():
         row["Target"] = nctid_to_target.get(nct_id, "")
         row["Modality"] = nctid_to_moltype.get(nct_id, "")
         row["Approval Status"] = nctid_to_approval.get(nct_id, "")
+        # New column for Target Type
+        row["Target Type"] = nctid_to_target_type.get(nct_id, "")
 
     # Save or update the output CSV, ensuring unique NCT IDs
     out_file = 'drugs_moa_target_mod.csv'
