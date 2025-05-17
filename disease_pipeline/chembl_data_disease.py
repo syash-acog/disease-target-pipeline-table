@@ -81,7 +81,7 @@ def fetch_approval_status(chembl_id, disease_name):
 def fetch_moa_targets_for_ids(chembl_ids):
     """
     For a list of ChEMBL IDs, fetches mechanism of action (MoA) and target information.
-    Returns a list of tuples: (chembl_id, mechanism_of_action, target_name).
+    Returns a list of tuples: (chembl_id, mechanism_of_action, target_name, target_id).
     If no mechanism is found, tries to get the first target_chembl_id from the activity endpoint as a fallback.
     """
     mechanisms = []
@@ -97,7 +97,7 @@ def fetch_moa_targets_for_ids(chembl_ids):
                 moa = mech.get("mechanism_of_action") or "NA"
                 tgt_id = mech.get("target_chembl_id")
                 tgt_name = fetch_target_name(tgt_id) if tgt_id else "NA"
-                mechanisms.append((chembl_id, moa, tgt_name))
+                mechanisms.append((chembl_id, moa, tgt_name, tgt_id))
                 found_mechanism = True
         else:
             print(f"[WARN] Mechanism fetch failed ({resp.status_code}) for {chembl_id}")
@@ -111,7 +111,7 @@ def fetch_moa_targets_for_ids(chembl_ids):
                 if activities:
                     tgt_id = activities[0].get("target_chembl_id")
                     tgt_name = fetch_target_name(tgt_id) if tgt_id else "NA"
-                    mechanisms.append((chembl_id, "NA", tgt_name))
+                    mechanisms.append((chembl_id, "NA", tgt_name, tgt_id))
     return mechanisms
 
 def fetch_target_name(target_chembl_id):
@@ -148,12 +148,13 @@ def extract_moa_keyword(moa):
 
 def get_moa_short(moa_targets):
     """
-    For a list of (chembl_id, moa, target) tuples, returns a short MoA string.
+    For a list of (chembl_id, moa, target, target_id) tuples, returns a short MoA string.
     Format: 'GENE_SYMBOL: keyword' for each pair, comma-separated for multiple pairs.
     Returns 'NA' if no valid pairs are found.
     """
     short_blocks = []
-    for chembl_id, moa, target in moa_targets:
+    for tup in moa_targets:
+        _, moa, target, _ = tup
         if target and target != "NA":
             moa_kw = extract_moa_keyword(moa)
             short_blocks.append(f"{target}: {moa_kw}")
@@ -167,6 +168,20 @@ def format_multi_drug_output(blocks):
     Example: [["A", "B"], ["C"]] -> "A, B | C"
     """
     return " | ".join([", ".join([v for v in vals if v and v != "NA"]) if vals else "NA" for vals in blocks])
+
+def get_target_type(target_id):
+    """
+    Given a target ID, fetches the target type (e.g., 'SINGLE PROTEIN', 'MULTI-PROTEIN').
+    Returns 'NA' if not found or on error.
+    """
+    url = f"https://www.ebi.ac.uk/chembl/api/data/target/{target_id}.json"
+    resp = requests.get(url)
+    if resp.status_code == 200:
+        return resp.json().get("target_type", "NA")
+    else:
+        print(f"[WARN] Failed to fetch target type ({resp.status_code}) for {target_id}")
+        return "NA"
+
 
 
 # # The following function is not used in the main workflow but kept for reference.
