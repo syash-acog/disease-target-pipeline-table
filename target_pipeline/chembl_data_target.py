@@ -132,3 +132,21 @@ def get_approval_status_from_indication(ind):
             return "Not Approved"
     except Exception:
         return "NA"
+
+def get_drug_synonyms(chembl_id):
+    """
+    Returns a list of all synonyms (including pref_name) for a given ChEMBL drug ID.
+    """
+    url = f"https://www.ebi.ac.uk/chembl/api/data/molecule/{chembl_id}.json"
+    resp = requests.get(url)
+    names = set()
+    if resp.status_code == 200:
+        data = resp.json()
+        if data.get("pref_name"):
+            names.add(data["pref_name"])
+        for syn in data.get("molecule_synonyms", []):
+            if syn.get("synonym"):
+                names.add(syn["synonym"])
+            if syn.get("molecule_synonym"):
+                names.add(syn["molecule_synonym"])
+    return list(names)

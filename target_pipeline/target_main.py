@@ -78,8 +78,31 @@ def main():
                 approval = chembl_data_target.get_approval_status_from_indication(ind)
                 # Fetch all trials for this drug-indication pair
                 trials = db_client.fetch_trials_for_drug_and_indication(drug_name, ind.get("indication_name", ""))
-                if not trials:
-                    # If no trial, still output the row
+                all_trials = []
+                seen_nct_ids = set()
+
+                if trials:
+                    for trial in trials:
+                        nct_id = trial.get("nct_id")
+                        if nct_id and nct_id not in seen_nct_ids:
+                            all_trials.append(trial)
+                            seen_nct_ids.add(nct_id)
+                else:
+                    # Try all synonyms if no trials found with preferred name
+                    drug_synonyms = chembl_data_target.get_drug_synonyms(chembl_id)
+                    for drug_syn in drug_synonyms:
+                        if drug_syn.lower() == (drug_name or "").lower():
+                            continue  # already tried preferred name
+                        syn_trials = db_client.fetch_trials_for_drug_and_indication(drug_syn, ind.get("indication_name", ""))
+                        if syn_trials:
+                            for trial in syn_trials:
+                                nct_id = trial.get("nct_id")
+                                if nct_id and nct_id not in seen_nct_ids:
+                                    all_trials.append(trial)
+                                    seen_nct_ids.add(nct_id)
+
+                if not all_trials:
+                    # If no trial for any synonym, still output the row
                     results.append({
                         "Target Symbol": target_input,
                         "Drug Name": drug_name,
@@ -96,7 +119,7 @@ def main():
                         "intervention_types": ""
                     })
                 else:
-                    for trial in trials:
+                    for trial in all_trials:
                         results.append({
                             "Target Symbol": target_input,
                             "Drug Name": drug_name,

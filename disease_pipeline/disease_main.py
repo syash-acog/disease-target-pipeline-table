@@ -8,7 +8,11 @@ import os
 
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s"
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler('drug_pipeline.log')
+    ]
 )
 
 def main():
@@ -23,7 +27,7 @@ def main():
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--offset", type=int, default=0, help="Start row")
-    parser.add_argument("--limit", type=int, default=1677, help="Batch size")
+    parser.add_argument("--limit", type=int, default=1000, help="Batch size")
     args = parser.parse_args()
 
     # Prompt user for disease name and fetch relevant data

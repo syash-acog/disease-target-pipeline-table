@@ -4,3 +4,4 @@ __pycache__/
 *.parquet
 *.csv
 __init__.py
+*.log

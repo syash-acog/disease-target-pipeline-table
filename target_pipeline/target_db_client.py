@@ -44,7 +44,7 @@ class TargetDBClient:
         JOIN
             ctgov.interventions i ON s.nct_id = i.nct_id
         WHERE
-            c.downcase_name = %s
+            c.downcase_name ILIKE %s
             AND s.study_type = 'INTERVENTIONAL'
             AND i.intervention_type IN ('DRUG', 'BIOLOGICAL')
             AND LOWER(i.name) LIKE %s
@@ -52,7 +52,7 @@ class TargetDBClient:
             s.nct_id, c.downcase_name, s.phase, s.overall_status, s.source, s.source_class, s.official_title;
         """
         with self.connection.cursor() as cur:
-            cur.execute(query, (indication_name.lower(), f"%{drug_name.lower()}%"))
+            cur.execute(query, (f"%{indication_name.lower()}%", f"%{drug_name.lower()}%"))
             columns = [desc[0] for desc in cur.description]
             rows = cur.fetchall()
             data = [dict(zip(columns, row)) for row in rows]

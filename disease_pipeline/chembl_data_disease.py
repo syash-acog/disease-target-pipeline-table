@@ -61,22 +61,50 @@ def fetch_approval_status(chembl_id, disease_name):
     """
     url = f"https://www.ebi.ac.uk/chembl/api/data/drug_indication.json?molecule_chembl_id={chembl_id}&limit=1000"
     resp = requests.get(url)
-    if resp.status_code == 200:
-        for ind in resp.json().get("drug_indications", []):
-            # Safely handle None values for efo_term and mesh_heading
-            efo_term = (ind.get("efo_term") or "").strip().lower()
-            mesh_heading = (ind.get("mesh_heading") or "").strip().lower()
-            if disease_name and (
-                disease_name.strip().lower() == efo_term or
-                disease_name.strip().lower() == mesh_heading or
-                disease_name.strip().lower() in efo_term or
-                disease_name.strip().lower() in mesh_heading
-            ):
-                if float(ind.get("max_phase_for_ind", 0)) == 4:
+    
+    if resp.status_code != 200:
+        print(f"[WARN] Failed to fetch drug indication ({resp.status_code}) for {chembl_id}")
+        return "NA"
+    
+    indications = resp.json().get("drug_indications", [])
+    if not indications:
+        print(f"[INFO] No indications found for {chembl_id}")
+        return "Not Approved"
+
+    # Normalize disease name for comparison
+    disease_terms = set(word.lower() for word in disease_name.split())
+    
+    for ind in indications:
+        # Get all possible indication texts
+        ind_texts = []
+        if ind.get("efo_term"):
+            ind_texts.append(ind.get("efo_term"))
+        if ind.get("mesh_heading"):
+            ind_texts.append(ind.get("mesh_heading"))
+        if ind.get("indication_refs"):
+            for ref in ind.get("indication_refs", []):
+                if ref.get("ref_text"):
+                    ind_texts.append(ref.get("ref_text"))
+
+        # Check each indication text for match
+        for text in ind_texts:
+            if not text:
+                continue
+                
+            # Convert indication text to set of words for partial matching
+            ind_terms = set(word.lower() for word in text.split())
+            
+            # Check if enough terms match (at least 50% overlap)
+            common_terms = disease_terms.intersection(ind_terms)
+            if len(common_terms) >= len(disease_terms) / 2:
+                phase = float(ind.get("max_phase_for_ind", 0))
+                if phase == 4:
                     return "Approved"
                 else:
                     return "Not Approved"
-    return "NA"
+    
+    print(f"[INFO] No matching indications found for {chembl_id} and disease '{disease_name}'")
+    return "Not Approved"
 
 def fetch_moa_targets_for_ids(chembl_ids):
     """
