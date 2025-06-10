@@ -18,6 +18,7 @@ It supports both **disease-centric** (disease dossier) and **target-centric** (t
 - [Extending/Customizing](#extendingcustomizing)
 - [Troubleshooting](#troubleshooting)
 - [Scope for Improvement](#scope-for-improvement)
+- [Update AACT Database](#update-aact-database)
 
 ---
 
@@ -188,11 +189,19 @@ python target_main.py --target TUBB4B --output target_pipeline.csv
 
 ---
 
-## Scope for Improvement
+## Update AACT Database
 
-- **Indication-Condition Matching (LLM):**
-    - Currently, the pipeline matches ChEMBL indication names to AACT condition names using string matching.
-    - For improved recall and accuracy, you can use an LLM to match ChEMBL indications to the best AACT condition name, handling synonyms and phrasing differences.
-    - Integrate this step before querying trials for a drug-indication pair to reduce missing data due to naming mismatches.
+```bash
+pg_restore -h own1.aganitha.ai -p 8697 -U aact_db_user -e -v -O -x -d db_name --no-owner /home/syash/Downloads/postgres.dmp
+```
 
+- If you have DBeaver (or any similar SQL workbench) installed in your laptop, you can connect to the AACT database by providing the following details. Let me know if you need assistance in setting up.
 
+```bash
+host: own1.aganitha.ai
+port: 8697
+userid: aact_db_user
+pwd: )o>+PMnFUyW
+```
+
+- if you want to update new db with same name remove previous db first
